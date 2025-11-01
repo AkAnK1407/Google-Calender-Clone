@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 
 import EventCard from '../../Event/EventCard';
@@ -38,7 +38,7 @@ const layoutDayEvents = (events) => {
   });
 };
 
-const WeekView = ({ selectedDate, events, onEventClick }) => {
+const WeekView = ({ selectedDate, events, onEventClick, onCreateEvent }) => {
   const days = useMemo(() => generateWeekDays(selectedDate), [selectedDate]);
 
   const eventsByDay = useMemo(() => {
@@ -60,6 +60,37 @@ const WeekView = ({ selectedDate, events, onEventClick }) => {
       };
     });
   }, [days, events]);
+
+  const handleAllDayDoubleClick = (day) => {
+    const start = startOfDay(day);
+    const end = endOfDay(day);
+    onCreateEvent?.({
+      startTime: start,
+      endTime: end,
+      isAllDay: true,
+    });
+  };
+
+  const handleTimedDoubleClick = (day, event) => {
+    if (!onCreateEvent) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const offsetY = event.clientY - bounds.top;
+    const ratio = Math.max(0, Math.min(offsetY / bounds.height, 1));
+    const totalMinutes = Math.round(ratio * 24 * 60);
+    const limitedMinutes = Math.max(0, Math.min(totalMinutes, 24 * 60 - 30));
+    const snappedMinutes = Math.floor(limitedMinutes / 30) * 30;
+
+    const start = startOfDay(day);
+    start.setMinutes(snappedMinutes);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+    onCreateEvent({
+      startTime: start,
+      endTime: end,
+      isAllDay: false,
+    });
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -90,6 +121,7 @@ const WeekView = ({ selectedDate, events, onEventClick }) => {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
+                      onDoubleClick={() => handleAllDayDoubleClick(day)}
                       className="min-h-[3.5rem] border-b border-google-gray bg-slate-50 px-2 py-2"
                     >
                       {allDayEvents.map((event, index) => {
@@ -119,6 +151,7 @@ const WeekView = ({ selectedDate, events, onEventClick }) => {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
+                      onDoubleClick={(event) => handleTimedDoubleClick(day, event)}
                       className="relative flex-1 bg-white"
                     >
                       <div className="absolute inset-0">

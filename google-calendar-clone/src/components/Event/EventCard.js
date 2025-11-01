@@ -13,6 +13,10 @@ const EventCard = ({ event, onClick, isDragging, className = '' }) => {
         e.stopPropagation();
         onClick?.(event);
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onClick?.(event);
+      }}
       className={`group cursor-pointer rounded-md border border-transparent bg-white px-2 py-1 text-sm shadow-google transition-shadow hover:shadow-googleHover ${isDragging ? 'opacity-80' : ''} ${className}`}
       style={{ borderLeft: `4px solid ${color || '#1a73e8'}` }}
     >

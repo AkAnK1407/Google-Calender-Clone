@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -55,6 +55,13 @@ const Calendar = () => {
     openEventModal('edit', event);
   };
 
+  const handleCreateEvent = useCallback(
+    (context = {}) => {
+      openEventModal('create', null, context);
+    },
+    [openEventModal]
+  );
+
   const findEventByDraggableId = (draggableId) => {
     const normalized = draggableId
       .replace(/^all-day-/, '')
@@ -102,6 +109,7 @@ const Calendar = () => {
       selectedDate,
       events,
       onEventClick: handleEventClick,
+      onCreateEvent: handleCreateEvent,
     };
 
     switch (currentView) {
@@ -113,7 +121,7 @@ const Calendar = () => {
       default:
         return <MonthView {...viewProps} />;
     }
-  }, [currentView, events, selectedDate]);
+  }, [currentView, events, selectedDate, handleCreateEvent]);
 
   return (
     <div className="flex h-full flex-col bg-slate-100">
@@ -133,7 +141,7 @@ const Calendar = () => {
               >
                 {isLoadingEvents ? (
                   <div className="flex flex-1 items-center justify-center text-slate-500">
-                    Loading events?
+                    Loading events...
                   </div>
                 ) : (
                   renderedView

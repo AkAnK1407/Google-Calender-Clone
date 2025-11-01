@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfDay, addDays } from 'date-fns';
+import { format, startOfDay, endOfDay, addDays } from 'date-fns';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -32,10 +32,20 @@ const groupEventsByDay = (events) => {
   return map;
 };
 
-const MonthView = ({ selectedDate, events, onEventClick }) => {
+const MonthView = ({ selectedDate, events, onEventClick, onCreateEvent }) => {
   const weeks = useMemo(() => generateMonthMatrix(selectedDate), [selectedDate]);
 
   const eventsByDay = useMemo(() => groupEventsByDay(events), [events]);
+
+  const handleDayDoubleClick = (day) => {
+    const start = startOfDay(day);
+    const end = endOfDay(day);
+    onCreateEvent?.({
+      startTime: start,
+      endTime: end,
+      isAllDay: true,
+    });
+  };
 
   return (
     <div className="flex-1 overflow-hidden">
@@ -61,6 +71,7 @@ const MonthView = ({ selectedDate, events, onEventClick }) => {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
+                      onDoubleClick={() => handleDayDoubleClick(day)}
                       className={`flex flex-col border-r border-google-gray p-2 transition ${
                         snapshot.isDraggingOver ? 'bg-google-hover/70' : 'bg-white'
                       } ${inMonth ? '' : 'bg-slate-100'} ${isToday ? 'ring-2 ring-google-blue' : ''}`}

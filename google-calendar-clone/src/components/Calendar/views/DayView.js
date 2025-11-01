@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 
 import EventCard from '../../Event/EventCard';
@@ -16,7 +16,7 @@ const getDurationMinutes = (event) => {
   return Math.max(diff / 60000, 15);
 };
 
-const DayView = ({ selectedDate, events, onEventClick }) => {
+const DayView = ({ selectedDate, events, onEventClick, onCreateEvent }) => {
   const dayStart = startOfDay(selectedDate);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
@@ -32,6 +32,37 @@ const DayView = ({ selectedDate, events, onEventClick }) => {
       timedEvents: timed,
     };
   }, [events, selectedDate, dayEnd, dayStart]);
+
+  const handleAllDayDoubleClick = () => {
+    if (!onCreateEvent) return;
+    const start = startOfDay(selectedDate);
+    onCreateEvent({
+      startTime: start,
+      endTime: endOfDay(selectedDate),
+      isAllDay: true,
+    });
+  };
+
+  const handleTimedDoubleClick = (event) => {
+    if (!onCreateEvent) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const offsetY = event.clientY - bounds.top;
+    const ratio = Math.max(0, Math.min(offsetY / bounds.height, 1));
+    const totalMinutes = Math.round(ratio * 24 * 60);
+    const limitedMinutes = Math.max(0, Math.min(totalMinutes, 24 * 60 - 30));
+    const snappedMinutes = Math.floor(limitedMinutes / 30) * 30;
+
+    const start = startOfDay(selectedDate);
+    start.setMinutes(snappedMinutes);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+    onCreateEvent({
+      startTime: start,
+      endTime: end,
+      isAllDay: false,
+    });
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -57,6 +88,7 @@ const DayView = ({ selectedDate, events, onEventClick }) => {
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
+                onDoubleClick={handleAllDayDoubleClick}
                 className="min-h-[3.5rem] border-b border-google-gray bg-slate-50 px-4 py-3"
               >
                 {allDayEvents.map((event, index) => {
@@ -86,6 +118,7 @@ const DayView = ({ selectedDate, events, onEventClick }) => {
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
+                onDoubleClick={handleTimedDoubleClick}
                 className="relative flex-1 bg-white"
               >
                 <div className="absolute inset-0">

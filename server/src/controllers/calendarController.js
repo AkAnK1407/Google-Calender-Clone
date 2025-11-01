@@ -1,5 +1,6 @@
 const Calendar = require('../models/Calendar');
 const asyncHandler = require('../utils/asyncHandler');
+const { ensureDemoUserData } = require('../utils/demoSeed');
 
 const sanitizeCalendarPayload = (payload) => {
   const allowedFields = ['name', 'color', 'visibility', 'userId', 'isPrimary', 'timeZone', 'metadata'];
@@ -13,6 +14,10 @@ const sanitizeCalendarPayload = (payload) => {
 
 const getCalendars = asyncHandler(async (req, res) => {
   const { userId, visibility } = req.query;
+
+  if (userId) {
+    await ensureDemoUserData(userId);
+  }
 
   const filter = {};
   if (userId) filter.userId = userId;
