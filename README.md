@@ -21,6 +21,8 @@ Pixel-perfect Google Calendar experience built with React (JavaScript), Tailwind
 - Real-time conflict detection powered by the backend.
 - Calendar sidebar with mini-month picker, calendar visibility toggles, and search (debounced).
 - Zustand-powered optimistic updates for a responsive UX, paired with toast notifications.
+- Double-click anywhere in a view to open a pre-filled event modal that respects the clicked day/time slot, or drag-and-drop events across days and times.
+- Demo data (calendars + recurring events) is auto-seeded for the `demo-user` so the interface loads with realistic content immediately.
 
 > **Note**: This repository reflects ongoing work. Certain advanced behaviours (mobile optimisations, full recurrence editing UI, production deployment automation) are in progress.
 
@@ -75,7 +77,7 @@ cp .env.example .env              # Update values accordingly
 npm run dev
 ```
 
-The API listens on `http://localhost:5000`. Ensure MongoDB credentials are configured in `.env`.
+The API listens on `http://localhost:5000`. Ensure MongoDB credentials are configured in `.env`. The first call to `/api/calendars?userId=demo-user` seeds sample calendars and recurring events for a fast visual check.
 
 ## Environment Variables
 
@@ -96,6 +98,13 @@ RATE_LIMIT_MAX=100
 MONGO_MAX_POOL_SIZE=10
 JWT_SECRET=<random-string>
 ```
+
+## Demo Data
+
+- The backend automatically seeds demo calendars and events the first time `/api/calendars?userId=demo-user` is called.
+- Seeded calendars mirror Google defaults (`My Calendar`, `Team Sync`, `Reminders`) with distinct colors and visibility flags.
+- Sample events showcase daily, weekly, bi-weekly, and all-day recurrence rules so the UI renders realistic schedules immediately.
+- Seeding is idempotent: if documents already exist for the user, no additional records are created. Delete the `calendars` or `events` collections to regenerate.
 
 ## Backend API
 
@@ -119,11 +128,23 @@ All event endpoints require `userId` association (authentication scaffolding pla
 - Optimistic updates mirror backend mutations, with rollback handled by toasts and re-fetch.
 - Debounced search calls ensure network efficiency when filtering events.
 
+## Business Logic & Edge Cases
+- Recurring events are expanded on the server (via `rrule`) so month/week/day queries return concrete instances for drag-and-drop and rendering.
+- Conflict detection evaluates both persisted events and expanded recurrences while excluding the record being edited.
+- Backend validators enforce ISO date inputs, per-user calendar ownership, and guard against invalid recurrence payloads.
+- Event updates merge payloads with existing documents to preserve untouched properties (attendees, reminders, metadata).
+
+## UI Interactions & Animations
+- Framer Motion animates view switches with a subtle horizontal slide to mimic Google Calendar's visual rhythm.
+- `react-beautiful-dnd` enables drag-and-drop of timed and all-day events in every view; drop targets snap to the correct day/time bucket.
+- Double-click any day cell or time slot to open the event modal pre-filled with that context, mirroring Google's quick-create behaviour.
+- Toasts, hover shadows, and focus states match Google's design language while remaining fully keyboard accessible.
+
 ## Keyboard Shortcuts
-- `C` ? open the create event modal
-- `T` ? jump to today
-- `M` / `W` / `D` ? switch to Month, Week, or Day view
-- `?` / `?` ? navigate backward / forward based on the active view
+- `C` - open the create event modal
+- `T` - jump to today
+- `M` / `W` / `D` - switch to Month, Week, or Day view
+- `ArrowLeft` / `ArrowRight` - navigate backward / forward based on the active view
 
 ## Deployment Guide
 

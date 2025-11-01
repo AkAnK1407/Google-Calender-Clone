@@ -28,6 +28,42 @@ const buildDateTime = (dateValue, timeValue) => {
   return new Date(isoString);
 };
 
+const findCalendarColor = (calendars, calendarId) => {
+  const calendar = calendars?.find((item) => item._id === calendarId);
+  return calendar?.color;
+};
+
+const getDefaultStartDate = () => {
+  const date = new Date();
+  date.setHours(9, 0, 0, 0);
+  return date;
+};
+
+const getDefaultEndDate = (start) => new Date(start.getTime() + 60 * 60 * 1000);
+
+const buildDefaultFormValues = (calendars) => {
+  const start = getDefaultStartDate();
+  const end = getDefaultEndDate(start);
+  const defaultCalendarId = calendars?.[0]?._id || '';
+  const defaultColor = findCalendarColor(calendars, defaultCalendarId) || GOOGLE_COLORS[0];
+
+  return {
+    title: '',
+    description: '',
+    calendar: defaultCalendarId,
+    color: defaultColor,
+    isAllDay: false,
+    startDate: toDateInputValue(start),
+    startTime: toTimeInputValue(start),
+    endDate: toDateInputValue(end),
+    endTime: toTimeInputValue(end),
+    location: '',
+    attendees: [''],
+    reminders: [{ ...defaultReminder }],
+    recurrence: { ...initialRecurrence },
+  };
+};
+
 const EventModal = () => {
   const {
     eventModal,
@@ -52,52 +88,92 @@ const EventModal = () => {
   const isOpen = eventModal.isOpen;
   const isEditMode = eventModal.mode === 'edit';
 
-  const [formValues, setFormValues] = useState({
-    title: '',
-    description: '',
-    calendar: calendars[0]?._id,
-    color: GOOGLE_COLORS[0],
-    isAllDay: false,
-    startDate: toDateInputValue(new Date()),
-    startTime: '09:00',
-    endDate: toDateInputValue(new Date()),
-    endTime: '10:00',
-    location: '',
-    attendees: [''],
-    reminders: [defaultReminder],
-    recurrence: initialRecurrence,
-  });
+  const [formValues, setFormValues] = useState(() => buildDefaultFormValues(calendars));
   const [conflicts, setConflicts] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   useEffect(() => {
-    if (isOpen && eventModal.event) {
+    if (!isOpen) {
+      return;
+    }
+
+    if (eventModal.event) {
       const event = eventModal.event;
       const start = event.startTime instanceof Date ? event.startTime : parseISO(event.startTime);
       const end = event.endTime instanceof Date ? event.endTime : parseISO(event.endTime);
+      const calendarId = event.calendar?._id || event.calendar || calendars[0]?._id || '';
+      const color = event.color || findCalendarColor(calendars, calendarId) || GOOGLE_COLORS[0];
 
       setFormValues({
+        ...buildDefaultFormValues(calendars),
         title: event.title || '',
         description: event.description || '',
-        calendar: event.calendar?._id || event.calendar,
-        color: event.color || GOOGLE_COLORS[0],
-        isAllDay: event.isAllDay || false,
+        calendar: calendarId,
+        color,
+        isAllDay: Boolean(event.isAllDay),
         startDate: toDateInputValue(start),
         startTime: toTimeInputValue(start),
         endDate: toDateInputValue(end),
         endTime: toTimeInputValue(end),
         location: event.location || '',
-        attendees: event.attendees?.length ? event.attendees.map((attendee) => attendee.email || '') : [''],
-        reminders: event.reminders?.length ? event.reminders : [defaultReminder],
-        recurrence: event.recurrence || initialRecurrence,
+        attendees: event.attendees?.length
+          ? event.attendees.map((attendee) => attendee.email || '')
+          : [''],
+        reminders: event.reminders?.length
+          ? event.reminders.map((reminder) => ({ ...defaultReminder, ...reminder }))
+          : [{ ...defaultReminder }],
+        recurrence: event.recurrence
+          ? { ...initialRecurrence, ...event.recurrence }
+          : { ...initialRecurrence },
       });
-    } else if (isOpen) {
-      setFormValues((prev) => ({
-        ...prev,
-        calendar: calendars[0]?._id,
-      }));
+      return;
     }
-  }, [isOpen, eventModal.event, calendars]);
+
+    const baseValues = buildDefaultFormValues(calendars);
+    const context = eventModal.dateContext || {};
+
+    let start = context.startTime ? new Date(context.startTime) : getDefaultStartDate();
+    if (Number.isNaN(start.getTime())) {
+      start = getDefaultStartDate();
+    }
+
+    let end = context.endTime ? new Date(context.endTime) : getDefaultEndDate(start);
+    if (Number.isNaN(end.getTime())) {
+      end = getDefaultEndDate(start);
+    }
+
+    if (context.isAllDay) {
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setHours(23, 59, 0, 0);
+    }
+
+    const calendarId = context.calendarId || baseValues.calendar;
+    const color = context.color || findCalendarColor(calendars, calendarId) || baseValues.color;
+
+    setFormValues({
+      ...baseValues,
+      calendar: calendarId,
+      color,
+      isAllDay: Boolean(context.isAllDay),
+      startDate: toDateInputValue(start),
+      startTime: toTimeInputValue(start),
+      endDate: toDateInputValue(end),
+      endTime: toTimeInputValue(end),
+    });
+  }, [isOpen, eventModal.event, eventModal.dateContext, calendars]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (formValues.calendar || !calendars.length) return;
+
+    const defaultCalendarId = calendars[0]._id;
+    setFormValues((prev) => ({
+      ...prev,
+      calendar: defaultCalendarId,
+      color: findCalendarColor(calendars, defaultCalendarId) || prev.color,
+    }));
+  }, [isOpen, calendars, formValues.calendar]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -126,7 +202,35 @@ const EventModal = () => {
   }, [formValues.startDate, formValues.startTime, formValues.endDate, formValues.endTime, formValues.isAllDay, formValues.calendar, checkConflicts, isOpen, eventModal.event]);
 
   const handleChange = (field, value) => {
-    setFormValues((prev) => ({ ...prev, [field]: value }));
+    setFormValues((prev) => {
+      if (field === 'calendar') {
+        const nextColor = findCalendarColor(calendars, value) || prev.color;
+        return { ...prev, calendar: value, color: nextColor };
+      }
+
+      if (field === 'isAllDay') {
+        if (value) {
+          return {
+            ...prev,
+            isAllDay: true,
+            startTime: '00:00',
+            endTime: '23:59',
+          };
+        }
+
+        const defaultStart = getDefaultStartDate();
+        const defaultEnd = getDefaultEndDate(defaultStart);
+
+        return {
+          ...prev,
+          isAllDay: false,
+          startTime: toTimeInputValue(defaultStart),
+          endTime: toTimeInputValue(defaultEnd),
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleReminderChange = (index, key, value) => {
@@ -140,7 +244,7 @@ const EventModal = () => {
   const addReminder = () => {
     setFormValues((prev) => ({
       ...prev,
-      reminders: [...prev.reminders, defaultReminder],
+      reminders: [...prev.reminders, { ...defaultReminder }],
     }));
   };
 

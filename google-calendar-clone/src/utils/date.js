@@ -87,7 +87,7 @@ export const formatEventTime = (startTime, endTime, isAllDay) => {
   if (isAllDay) {
     return 'All day';
   }
-  return `${format(startTime, 'p')} ? ${format(endTime, 'p')}`;
+  return `${format(startTime, 'p')} - ${format(endTime, 'p')}`;
 };
 
 export const isEventMultiDay = (event) => {
@@ -188,7 +188,7 @@ export const formatRangeLabel = (view, date) => {
       return format(date, 'EEEE, MMM d, yyyy');
     case VIEW_TYPES.WEEK: {
       const { start, end } = getViewRange(view, date);
-      return `${format(start, 'MMM d')} ? ${format(end, 'MMM d, yyyy')}`;
+      return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
     }
     case VIEW_TYPES.MONTH:
     default:
